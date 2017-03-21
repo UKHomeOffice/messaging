@@ -1,0 +1,54 @@
+#!/bin/bash
+
+url=example
+messages_dir=example
+
+set -e
+
+git symbolic-ref --short -q HEAD | grep 'master' &> /dev/null
+if [ $? != 0 ]; then
+   echo "Error: Messages can only be pushed from master git branch. Once you are ready to push to master then run this from master branch"
+   exit 1
+fi
+
+# Allow the user to run the script from directory above messages_dir.
+if ! [ -d ${messages_dir} ]; then
+    echo "Error: CWD must be the directory above ${messages_dir}"
+fi
+if ! [ -d ${messages_dir} ]; then
+    echo "Error: CWD must be ${messages_dir}"
+    exit 1
+fi
+mkdir -p "$messages_dir"
+
+# Usage help message if -h or --help.
+if [ "$1" == "-h" -o  "$1" == "--help" ]; then
+    echo -e "Usage: ${0} [-s story]\n"
+    exit 2
+fi
+
+# By default, we will push all files starting DJ-.
+# But the user can specify a story to restrict this to one (or more) matching files only.
+file_prefix=DJ-
+
+# OPTIONS:
+while getopts s: opt; do
+  case $opt in
+    s)
+      file_prefix=$OPTARG
+      ;;
+  esac
+done
+
+file_list=$(ls $messages_dir | grep ^${file_prefix} | awk -v msgdir=$messages_dir '{print msgdir"/"$1}')
+
+for file in $file_list; do
+  lang_code=$(echo $file | sed -n 's/.*\(_[a-zA-Z-]*\).*/\1/p' | sed -e '1s/^.//')
+  printf "\nAdding messages in file: $file for language: $lang_code\n"
+  curl --fail -X POST -F messagesFile=@"$file" "${url}/$lang_code"
+  printf "\n !!!Deleting $file"
+  rm "$file"
+  printf "\n"
+done
+
+echo -e ""

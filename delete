@@ -1,0 +1,49 @@
+#!/bin/bash
+
+OPTIND=1
+url=example
+
+# Usage help message if -h or --help.
+if [ "$1" == "-h" -o  "$1" == "--help" ]; then
+    echo -e "Usage: $0 [-s story] [-f filename]\n"
+    exit 2
+fi
+
+while getopts f:s: opt; do
+  case $opt in
+    s)
+      story_num=$OPTARG
+      ;;
+    f)
+      filename=$OPTARG
+      ;;
+  esac
+done
+
+shift $((OPTIND-1))
+[ "$1" = "--" ] && shift
+
+if [ -z "$filename" ]; then
+  term_list=$@
+else
+  term_list=$(awk -v ORS=', ' '{ print $1 }' $filename | sed 's/, $//')
+fi
+
+if [ -z "$story_num" ]; then
+  printf "\nEnter the story number for this deletion\n=> "
+  read story_num
+fi
+
+printf "\nDelete the following terms (y/n)?\n$term_list\n=> "
+
+read proceed
+printf '\n'
+
+if test $proceed = y; then
+  curl -X DELETE -H 'Content-Type: application/json' -d "{\"terms\" : \"$term_list\", \"story-number\" : \"$story_num\"}"  ${url}
+else
+  printf 'Delete aborted\n\n'
+  exit 1
+fi
+
+printf '\n\n'

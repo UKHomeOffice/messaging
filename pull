@@ -1,0 +1,55 @@
+#!/bin/bash
+
+messages_dir=example
+url=example
+supported_langs=("en")
+
+set -e
+
+# Allow the user to run the script from directory above messages_dir.
+if ! [ -d ${messages_dir} ]; then
+    messages_dir=..${messages_dir}
+fi
+if ! [ -d ${messages_dir} ]; then
+    echo "Error: CWD must be the directory above ${messages_dir}"
+    exit 1
+fi
+mkdir -p "$messages_dir"
+
+# Usage help message if -h or --help.
+if [ "$1" == "-h" -o  "$1" == "--help" ]; then
+    echo -e "Usage: ${0} [-l languages]\n"
+    exit 2
+fi
+
+languages=(${supported_langs[@]})
+
+# OPTIONS:
+# 	-s for story number, -l for specific language
+while getopts l: opt; do
+  case $opt in
+    l)
+      languages=($OPTARG)
+      ;;
+  esac
+done
+
+for lang in ${languages[@]}; do
+  printf "Getting messages for language: $lang\n"
+  curl -s "${url}$lang" > "$messages_dir"/messages_"$lang".json &
+done
+
+# shows a spinner while the files are grabbed
+PID=$!
+i=1
+sp="/-\|"
+echo -n ' '
+while kill -0 $PID 2> /dev/null
+do
+  printf "\b${sp:i++%${#sp}:1}"
+  sleep 0.5
+done
+
+# inform user when pull is complete
+wait
+echo -e "\bDONE\n"

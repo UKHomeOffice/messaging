@@ -1,0 +1,73 @@
+#!/bin/bash
+
+OPTIND=1
+messages_dir=example
+languages=("en")
+
+# Allow the user to run the script from directory above messages_dir.
+if ! [ -d ${messages_dir} ]; then
+    messages_dir=..${messages_dir}
+fi
+if ! [ -d ${messages_dir} ]; then
+    echo "Error: CWD must be the directory above ${messages_dir}"
+    exit 1
+fi
+
+num_entries=1
+
+# Usage help message if -h or --help.
+if [ "$1" == "-h" -o  "$1" == "--help" ]; then
+    echo -e "Usage: ${0} [-s story] [-n num_entries] [-l languages] [-t tags]\n"
+    exit 2
+fi
+
+# OPTIONS:
+# -n for number of entries, -s for story number, -l for specific language, -t for other tags
+while getopts n:s:l:t: opt; do
+  case $opt in
+    n)
+      num_entries=$OPTARG
+      ;;
+    l)
+      languages=($OPTARG)
+      ;;
+    s)
+      story_num=$OPTARG
+      ;;
+    t)
+      other_tags=$OPTARG
+      ;;
+  esac
+done
+
+# A Ruby heredoc to create the JSON template
+function json_body () {
+/usr/bin/env ruby <<-EORUBY
+  require 'json'
+ 
+  other_tags = "$other_tags".split(", ")
+  template = { "term" => "", "definition" => "", "fuzzy" => "1", "tags" => ["$story_num"] + other_tags }
+  container = []
+
+  for i in 1..$num_entries
+    container.push(template)
+  end
+
+  puts JSON.pretty_generate(container)
+EORUBY
+}
+
+# Get story number if not passed in
+if [ -z "$story_num" ]; then
+  printf "\nEnter the story number\n=> "
+  read story_num
+fi
+
+mkdir -p "$messages_dir"
+
+# Create the file for each of the languages
+for lang in ${languages[@]}; do
+  new_file="$messages_dir"/"$story_num"_"$lang".json
+  echo -e "Creating $new_file\n"
+  json_body > $new_file
+done
